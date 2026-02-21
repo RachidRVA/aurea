@@ -1,0 +1,290 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── USERS ───────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  role          UserRole  @default(CLIENT)
+  lexiconLock   Json?     // { primaryFamily, secondaryAccent, toneDna, emotionalCadence }
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  cycles        Cycle[]
+  analystNotes  AnalystNote[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  CLIENT
+  ANALYST
+  ADMIN
+}
+
+// ─── CYCLES ──────────────────────────────────────────────────
+
+model Cycle {
+  id              String      @id @default(cuid())
+  userId          String
+  cycleNumber     Int         @default(1)
+  status          CycleStatus @default(INTAKE)
+  startedAt       DateTime    @default(now())
+  completedAt     DateTime?
+  processedAt     DateTime?
+
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Intake data
+  stationResponses  StationResponse[]
+  integrationMeta   IntegrationMeta?
+  lifeArc           LifeArc?
+
+  // Processed outputs
+  coherenceScores   CoherenceScore[]
+  compassAnalytics  CompassAnalytics?
+  blindSpotFlags    BlindSpotFlag[]
+  synergyPairs      SynergyPair[]
+  lexiconProfile    LexiconProfile?
+  integrationLetter IntegrationLetter?
+  practiceCards     PracticeCard[]
+  recalibration     RecalibrationRhythm?
+  heatmapData       HeatmapData?
+
+  @@unique([userId, cycleNumber])
+  @@map("cycles")
+}
+
+enum CycleStatus {
+  INTAKE        // User is filling out the diagnostic
+  SUBMITTED     // User has submitted, awaiting processing
+  PROCESSING    // AI/Analyst is generating outputs
+  REVIEW        // Analyst reviewing AI output
+  DELIVERED     // Full package delivered to user
+  ARCHIVED      // Past cycle, kept for delta comparison
+}
+
+// ─── STATION RESPONSES (The 12-Station Diagnostic) ───────────
+
+model StationResponse {
+  id          String  @id @default(cuid())
+  cycleId     String
+  station     Int     // -6 to +6
+  primary     String  // Primary dropdown choice
+  secondary   String  // Secondary dropdown choice
+  reflection  String  @db.Text // Free-text reflection
+
+  cycle       Cycle   @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@unique([cycleId, station])
+  @@map("station_responses")
+}
+
+// ─── INTEGRATION META ────────────────────────────────────────
+
+model IntegrationMeta {
+  id              String  @id @default(cuid())
+  cycleId         String  @unique
+  feeling         String  @db.Text  // How the process felt
+  osName          String?            // User-chosen OS name
+  lexiconChoice   String?            // Spiritual/philosophical preference
+
+  cycle           Cycle   @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@map("integration_meta")
+}
+
+// ─── LIFE ARC ────────────────────────────────────────────────
+
+model LifeArc {
+  id          String  @id @default(cuid())
+  cycleId     String  @unique
+  shortTerm   String  @db.Text  // 0-12 months
+  midTerm     String  @db.Text  // 1-3 years
+  longTerm    String  @db.Text  // 3-10 years
+
+  cycle       Cycle   @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@map("life_arcs")
+}
+
+// ─── COHERENCE SCORES (Per Station) ──────────────────────────
+
+model CoherenceScore {
+  id              String  @id @default(cuid())
+  cycleId         String
+  station         Int
+  clarity         Float   // 0-1: directness of truth expression
+  consistency     Float   // 0-1: semantic recurrence across stations
+  coherence       Float   // 0-1: balance between strength and receptivity
+  weighted        Float   // Final weighted score (hinge zones get 1.2x)
+  rawText         String? @db.Text // AI reasoning for this score
+
+  cycle           Cycle   @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@unique([cycleId, station])
+  @@map("coherence_scores")
+}
+
+// ─── COMPASS ANALYTICS ───────────────────────────────────────
+
+model CompassAnalytics {
+  id              String  @id @default(cuid())
+  cycleId         String  @unique
+  gravityIndex    Float   // Mean of stations -2, -1, 0
+  graceIndex      Float   // Mean of stations 0, +1, +2
+  balanceRatio    Float   // Grace / Gravity (normalized to 1)
+  hcr             Float?  // Harmonic Coherence Ratio (global)
+  quadrant        String  // "equilibrium" | "compression" | "expansion" | "latency"
+  vectorDirection String? // Direction of evolution
+  deltaPrevious   Float?  // Change from prior cycle
+
+  cycle           Cycle   @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@map("compass_analytics")
+}
+
+// ─── BLIND SPOT FLAGS ────────────────────────────────────────
+
+model BlindSpotFlag {
+  id            String  @id @default(cuid())
+  cycleId       String
+  flagType      String  // "OVER_ACTIVE" | "UNDER_ACTIVE"
+  stationA      Int
+  stationB      Int
+  delta         Float
+  narrative     String  @db.Text // AI-generated interpretation
+  movement      String  // Suggested practice movement
+
+  cycle         Cycle   @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@map("blind_spot_flags")
+}
+
+// ─── SYNERGY PAIRS ───────────────────────────────────────────
+
+model SynergyPair {
+  id              String  @id @default(cuid())
+  cycleId         String
+  stationA        Int
+  stationB        Int
+  correlationR    Float   // Pearson correlation > 0.70
+  narrative       String  @db.Text
+
+  cycle           Cycle   @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@map("synergy_pairs")
+}
+
+// ─── LEXICON PROFILE ─────────────────────────────────────────
+
+model LexiconProfile {
+  id                String  @id @default(cuid())
+  cycleId           String  @unique
+  primaryFamily     String  // e.g., "architecture_light"
+  secondaryAccent   String? // e.g., "ecological_growth"
+  toneRatio         String  // e.g., "70_serene_30_catalytic"
+  colorCue          String  // "gold_dominant" | "emerald_dominant" | "teal_dominant"
+  topMetaphors      Json    // Array of detected metaphors from reflections
+  topVerbs          Json    // Array of detected action verbs
+
+  cycle             Cycle   @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@map("lexicon_profiles")
+}
+
+// ─── INTEGRATION LETTER ──────────────────────────────────────
+
+model IntegrationLetter {
+  id                  String  @id @default(cuid())
+  cycleId             String  @unique
+  title               String  // e.g., "The Geometry of Light"
+  acknowledgement     String  @db.Text
+  keyPattern          String  @db.Text
+  invitation          String  @db.Text
+  coreCompass         String  @db.Text
+  geometryOfFlow      String  @db.Text
+  signatureMoment     String  // The one sentence of essence
+  continuation        String  @db.Text
+  fullMarkdown        String  @db.Text // Complete letter as markdown
+  status              String  @default("draft") // draft | reviewed | final
+  analystEdits        Json?   // Track analyst modifications
+
+  cycle               Cycle   @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@map("integration_letters")
+}
+
+// ─── PRACTICE CARDS ──────────────────────────────────────────
+
+model PracticeCard {
+  id                  String  @id @default(cuid())
+  cycleId             String
+  slot                Int     // 1-6
+  senseAxis           String  // "mind" | "body" | "heart" | "intuition" | "eye_ear" | "spirit"
+  title               String  // e.g., "Preserve Harmony"
+  movementLine        String  // One-sentence mantra
+  ritualPosture       String  @db.Text  // 2-4 sensory lines
+  bespokeParagraph    String  @db.Text  // 100-120 words grounded in user's arc
+  resonanceScore      Float?  // 0-1, updated at revisit
+
+  cycle               Cycle   @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@unique([cycleId, slot])
+  @@map("practice_cards")
+}
+
+// ─── RECALIBRATION RHYTHM ────────────────────────────────────
+
+model RecalibrationRhythm {
+  id              String    @id @default(cuid())
+  cycleId         String    @unique
+  naturalTempo    String    // e.g., "semi_annual_harmonic"
+  gravityPhase    String    // e.g., "4-5 months structured synthesis"
+  gracePhase      String    // e.g., "1-2 months diffusion"
+  nextReviewAt    DateTime?
+  rhythmBand      String    // "gravity_lead" | "balanced" | "grace_lead"
+  guidance        String    @db.Text
+
+  cycle           Cycle     @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@map("recalibration_rhythms")
+}
+
+// ─── HEATMAP DATA ────────────────────────────────────────────
+
+model HeatmapData {
+  id              String  @id @default(cuid())
+  cycleId         String  @unique
+  stationValues   Json    // { "-6": 0.82, "-5": 0.75, ... "+6": 0.88 }
+  colorBands      Json    // { "-6": "gold", "-5": "emerald", ... }
+  peakZone        String  // e.g., "-3 to +1"
+  waitingZone     String? // e.g., "+3 to +4"
+
+  cycle           Cycle   @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@map("heatmap_data")
+}
+
+// ─── ANALYST NOTES ───────────────────────────────────────────
+
+model AnalystNote {
+  id          String   @id @default(cuid())
+  userId      String
+  content     String   @db.Text
+  noteType    String   // "continuity_card" | "cycle_review" | "flag"
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("analyst_notes")
+}
