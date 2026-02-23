@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
 import { BRAND } from '@/config/brand';
+import { createBrowserClient } from '@/lib/supabase-browser';
 
 export default function SignInPage() {
   const [email, setEmail] = useState('');
@@ -13,17 +13,7 @@ export default function SignInPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
-
-  const getSupabase = () => {
-    if (!supabaseRef.current && typeof window !== 'undefined') {
-      supabaseRef.current = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
-    }
-    return supabaseRef.current;
-  };
+  const getSupabase = () => createBrowserClient();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

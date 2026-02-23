@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Play, Pause, Volume2, SkipForward, SkipBack } from 'lucide-react';
 import { BRAND } from '@/config/brand';
-import { createClient } from '@supabase/supabase-js';
+import { createBrowserClient } from '@/lib/supabase-browser';
 
 // ─── TYPES ──────────────────────────────────────────
 interface Chapter {
@@ -146,11 +146,7 @@ export default function PodcastPage() {
   useEffect(() => {
     async function fetchPodcast() {
       try {
-        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-        if (!url || !key) return;
-
-        const supabase = createClient(url, key);
+        const supabase = createBrowserClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 

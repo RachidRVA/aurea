@@ -3,12 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { BRAND } from '@/config/brand';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { createBrowserClient } from '@/lib/supabase-browser';
 
 const SENSE_ICONS: Record<string, string> = {
   mind: '◇',
@@ -75,6 +70,7 @@ export default function PracticePage() {
   useEffect(() => {
     async function fetchCards() {
       try {
+        const supabase = createBrowserClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setLoading(false); return; }
 

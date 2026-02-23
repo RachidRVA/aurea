@@ -5,12 +5,7 @@ import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
 import { BRAND } from '@/config/brand';
 import type { DirectionCard } from '@/lib/types';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { createBrowserClient } from '@/lib/supabase-browser';
 
 const DEMO_DIRECTIONS: DirectionCard[] = [
   {
@@ -135,6 +130,7 @@ export default function DirectionsPage() {
   useEffect(() => {
     async function fetchDirections() {
       try {
+        const supabase = createBrowserClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setLoading(false); return; }
 

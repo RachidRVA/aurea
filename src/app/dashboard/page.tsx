@@ -7,12 +7,7 @@ import { HeatmapRing } from '@/components/visualizations/HeatmapRing';
 import { CompassQuadrant } from '@/components/visualizations/CompassQuadrant';
 import { BRAND } from '@/config/brand';
 import { STATIONS } from '@/config/stations';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { createBrowserClient } from '@/lib/supabase-browser';
 
 // Fallback demo data
 const DEMO_DATA = {
@@ -42,6 +37,7 @@ export default function DashboardPage() {
   useEffect(() => {
     async function fetchDashboard() {
       try {
+        const supabase = createBrowserClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setLoading(false); return; }
 

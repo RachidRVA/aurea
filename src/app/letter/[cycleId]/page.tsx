@@ -4,12 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { BRAND } from '@/config/brand';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { createBrowserClient } from '@/lib/supabase-browser';
 
 const DEMO_LETTER = {
   title: 'The Geometry of Light and Flow',
@@ -35,6 +30,7 @@ export default function LetterPage() {
   useEffect(() => {
     async function fetchLetter() {
       try {
+        const supabase = createBrowserClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setLoading(false); return; }
 
