@@ -1,15 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { BRAND } from '@/config/brand';
+import { createClient } from '@supabase/supabase-js';
 
-/**
- * AUREA Practice Suite
- *
- * Six sensory cards displayed as a swipeable/clickable deck.
- * Each card is a micro-ritual — an invitation, not a task.
- */
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 const SENSE_ICONS: Record<string, string> = {
   mind: '◇',
@@ -20,51 +19,48 @@ const SENSE_ICONS: Record<string, string> = {
   spirit: '✦',
 };
 
-const DEMO_CARDS = [
+interface PracticeCard {
+  slot: number;
+  senseAxis: string;
+  title: string;
+  movementLine: string;
+  ritualPosture: string;
+  bespokeParagraph: string;
+}
+
+const DEMO_CARDS: PracticeCard[] = [
   {
-    slot: 1,
-    senseAxis: 'mind',
-    title: 'Preserve Harmony',
+    slot: 1, senseAxis: 'mind', title: 'Preserve Harmony',
     movementLine: 'Let proportion become prayer.',
     ritualPosture: 'Sit before your workspace as if it were an altar. Trace the lines of any plan until your breath matches its geometry. Notice where structure steadies your pulse.',
     bespokeParagraph: 'Your mind builds sanctuaries of order. Yet mastery\'s danger is excess tightening. Each morning, before diving into architecture or deal flow, enter the sacred pause. Between thought and motion lies the hinge where design listens to divinity. Protect it fiercely; it is the silence that keeps your brilliance porous.',
   },
   {
-    slot: 2,
-    senseAxis: 'body',
-    title: 'Enter the Structure',
+    slot: 2, senseAxis: 'body', title: 'Enter the Structure',
     movementLine: 'Step into what you once only drafted.',
     ritualPosture: 'Walk through a room you designed — literal or imagined. Let your hand glide along surfaces; feel where tension lives. Breathe into those corners until ease returns.',
     bespokeParagraph: 'You often hover above your creations, perfecting their coherence from altitude. This practice brings you back into contact. Once a week, choose one venture, one team, one environment — enter it physically or sensorially. Listen for the hum of what you built. Embodiment grounds insight; the body is the first blueprint.',
   },
   {
-    slot: 3,
-    senseAxis: 'heart',
-    title: 'Yield the Center',
+    slot: 3, senseAxis: 'heart', title: 'Yield the Center',
     movementLine: 'Grace enters through surrendered mastery.',
     ritualPosture: 'Stand at the midpoint of a circle, then step aside. Watch how others fill the space you once held. Let gratitude, not critique, be your instrument.',
     bespokeParagraph: 'Leadership for you has long meant holding coherence. Now, yielding becomes the higher craft. In your alliances, allow another to lead a design you conceived. Observe how proportion sustains itself without your constant calibration. Yielding is not withdrawal — it is trust made visible.',
   },
   {
-    slot: 4,
-    senseAxis: 'intuition',
-    title: 'Tend the Axis',
+    slot: 4, senseAxis: 'intuition', title: 'Tend the Axis',
     movementLine: 'Balance gravity and grace before deciding.',
     ritualPosture: 'Close your eyes; imagine a column of light through your spine. On inhale, feel weight anchor downward; on exhale, radiance rise. Stay until both currents equalize.',
-    bespokeParagraph: 'Your intuition is an engineer disguised as mystic. It knows when to act and when to wait. Before major pivots or new ventures, tend your axis first — walk, breathe, or pray until body and insight share tempo. Every misalignment you\'ve ever solved began as a rhythm out of sync; every harmony begins as one breath restored.',
+    bespokeParagraph: 'Your intuition is an engineer disguised as mystic. It knows when to act and when to wait. Before major pivots or new ventures, tend your axis first — walk, breathe, or pray until body and insight share tempo.',
   },
   {
-    slot: 5,
-    senseAxis: 'eye_ear',
-    title: 'Radiate Stillness',
+    slot: 5, senseAxis: 'eye_ear', title: 'Radiate Stillness',
     movementLine: 'Teach by presence, not persuasion.',
     ritualPosture: 'Light a single lamp; sit without agenda. Notice how silence rearranges the room. Let perception itself become offering.',
-    bespokeParagraph: 'Your words already build architectures in others. The next evolution is transmission through stillness. Host fewer meetings; hold more presence. When you walk into a room, coherence should precede language. This is how a conductor leads — by resonance rather than control.',
+    bespokeParagraph: 'Your words already build architectures in others. The next evolution is transmission through stillness. Host fewer meetings; hold more presence. When you walk into a room, coherence should precede language.',
   },
   {
-    slot: 6,
-    senseAxis: 'spirit',
-    title: 'Return to Proportion',
+    slot: 6, senseAxis: 'spirit', title: 'Return to Proportion',
     movementLine: 'Every cycle completes by softening.',
     ritualPosture: 'Review your week; trace where tension exceeded purpose. Exhale the lines that grew too rigid. Whisper thanks for the design that remains.',
     bespokeParagraph: 'Your covenant has always been to make clarity inhabitable. The return is your proof of devotion. At week\'s end, close the ledger, step back, and remember: structure was never the goal — coherence was. Let stillness redraw the blueprint. Then begin again, lighter.',
@@ -73,7 +69,53 @@ const DEMO_CARDS = [
 
 export default function PracticePage() {
   const [activeCard, setActiveCard] = useState(0);
-  const card = DEMO_CARDS[activeCard];
+  const [cards, setCards] = useState<PracticeCard[]>(DEMO_CARDS);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchCards() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { setLoading(false); return; }
+
+        const { data: cycle } = await supabase
+          .from('cycles')
+          .select('id')
+          .eq('user_id', user.id)
+          .in('status', ['DELIVERED', 'PROCESSING'])
+          .order('cycle_number', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (!cycle) { setLoading(false); return; }
+
+        const { data: practiceCards } = await supabase
+          .from('practice_cards')
+          .select('slot, sense_axis, title, movement_line, ritual_posture, bespoke_paragraph')
+          .eq('cycle_id', cycle.id)
+          .order('slot', { ascending: true });
+
+        if (practiceCards && practiceCards.length > 0) {
+          setCards(practiceCards.map((c: any) => ({
+            slot: c.slot,
+            senseAxis: c.sense_axis,
+            title: c.title,
+            movementLine: c.movement_line,
+            ritualPosture: c.ritual_posture,
+            bespokeParagraph: c.bespoke_paragraph,
+          })));
+        }
+      } catch (err) {
+        console.error('[Practice] Fetch error:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchCards();
+  }, []);
+
+  const card = cards[activeCard];
 
   return (
     <main className="min-h-screen bg-cream-50">
@@ -90,7 +132,7 @@ export default function PracticePage() {
       <div className="max-w-3xl mx-auto px-6 py-12">
         {/* Card selector */}
         <div className="flex justify-center gap-3 mb-12">
-          {DEMO_CARDS.map((c, i) => (
+          {cards.map((c, i) => (
             <button
               key={c.slot}
               onClick={() => setActiveCard(i)}
@@ -101,7 +143,7 @@ export default function PracticePage() {
               }`}
               title={c.title}
             >
-              {SENSE_ICONS[c.senseAxis]}
+              {SENSE_ICONS[c.senseAxis] || '◇'}
             </button>
           ))}
         </div>

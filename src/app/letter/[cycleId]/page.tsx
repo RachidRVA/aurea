@@ -1,52 +1,94 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { BRAND } from '@/config/brand';
+import { createClient } from '@supabase/supabase-js';
 
-/**
- * AUREA Integration Letter Viewer
- *
- * A beautifully typeset reading experience for the Integration Letter.
- * Designed for contemplative reading — EB Garamond serif, cream background,
- * narrow column width, generous line height.
- */
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
-// Demo letter (replace with API fetch by cycleId in production)
 const DEMO_LETTER = {
   title: 'The Geometry of Light and Flow',
-  userName: 'Rachid "Sheed" Ndiaye',
-  date: 'November 2025',
+  userName: 'User',
+  date: 'February 2026',
   sections: {
-    acknowledgement: `There is a stillness that precedes design — the silence before the first line meets the page. You have lived inside that silence for years, listening for a geometry you could trust. Your present vessel — the venture studio you are building, the constellation of regenerative projects you steer across continents — exists to give that geometry language. What surrounds you is not empire but experiment: a living sketch where systems become prayers for coherence.
-
-You are a steward of proportion. Even when the world felt unstructured, your instinct was to restore rhythm, not rule it. In this map, that quality registers as dignity of form: a refusal to abandon coherence, even in rupture.`,
-
-    keyPattern: `When your stations aligned, a pattern emerged as clean as a blueprint under morning sun. You are a translator between conviction and form. Your Archetype — the tactician-builder — designs shelter out of paradox; your Applied Shell — the studio, the commons, the framework — is the outer skin of an inner vow that truth must be livable.
-
-The hinge glows brightest when you stop managing coherence and start embodying it. The builder no longer draws the house; he walks into it, barefoot, and opens the windows. That is your revelation: light inhabits structure, not the other way around.`,
-
-    invitation: `Every revelation risks paralysis unless it finds motion. Two forces now call for your attention: the ease that comes from mastery and the humility that keeps mastery porous. One is the zone where you already move like water — translation, synthesis, pattern recognition. The other is the edge that asks for practice — embodiment, allowing others to hold the tools.
-
-Begin where energy gathers effortlessly; honour it as sacred fuel. Then turn toward the slower current; shape it through rhythm, not urgency. Choose one collaboration this quarter where you deliberately do not lead.`,
-
-    coreCompass: `Every living architecture has a hinge — that quiet axis where everything breathes. Yours rests between roots and sky, between what shaped you and what you now shape. Below lies the ground line: memory, discipline, the lineage of builders before you. Above stretches the sky line: expression, mentorship, the translation of systems into legacy.
-
-You need not fix anything here; only listen. When the ground grows heavy, loosen it with compassion. When the sky feels thin, widen it with curiosity.`,
-
-    geometryOfFlow: `Beneath all these patterns runs one current — the Geometry of Flow. Gold marks the zones of effortless rhythm, where clarity moves cleanly through form. Emerald shows your grounding — patient, proportioned, faithful to slow coherence. Teal shimmers at the horizon, where influence begins to diffuse.
-
-You no longer live in fragments. Your system circulates like breath: from knowing to giving, from design to transmission.`,
-
-    signatureMoment: 'Light inhabits structure, not the other way around.',
-
-    continuation: `This letter is not an ending; it is a doorway left ajar. Every six months, return to your map as one would revisit a home in shifting seasons. Notice what has settled, what echoes, what wants to be rebuilt in lighter material.
-
-Your work, your faith, your return — all share one geometry: awareness, alignment, return. When the pattern feels heavy, remember: coherence is not perfection; it is rhythm. Breathe, redesign, and step again into the light.`,
+    acknowledgement: 'There is a stillness that precedes design — the silence before the first line meets the page. You have lived inside that silence for years, listening for a geometry you could trust.',
+    keyPattern: 'When your stations aligned, a pattern emerged as clean as a blueprint under morning sun. You are a translator between conviction and form.',
+    invitation: 'Every revelation risks paralysis unless it finds motion. Two forces now call for your attention: the ease that comes from mastery and the humility that keeps mastery porous.',
+    coreCompass: 'Every living architecture has a hinge — that quiet axis where everything breathes. Yours rests between roots and sky, between what shaped you and what you now shape.',
+    geometryOfFlow: 'Beneath all these patterns runs one current — the Geometry of Flow. Gold marks the zones of effortless rhythm, where clarity moves cleanly through form.',
+    signatureMoment: 'Coherence is not perfection; it is rhythm.',
+    continuation: 'This letter is not an ending; it is a doorway left ajar. Every six months, return to your map as one would revisit a home in shifting seasons.',
   },
 };
 
 export default function LetterPage() {
-  const letter = DEMO_LETTER;
+  const params = useParams();
+  const cycleId = params.cycleId as string;
+  const [letter, setLetter] = useState(DEMO_LETTER);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchLetter() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { setLoading(false); return; }
+
+        // If cycleId is 'demo' or 'latest', find the latest cycle
+        let resolvedCycleId = cycleId;
+        if (cycleId === 'demo' || cycleId === 'latest') {
+          const { data: cycle } = await supabase
+            .from('cycles')
+            .select('id, started_at')
+            .eq('user_id', user.id)
+            .in('status', ['DELIVERED', 'PROCESSING'])
+            .order('cycle_number', { ascending: false })
+            .limit(1)
+            .single();
+          if (!cycle) { setLoading(false); return; }
+          resolvedCycleId = cycle.id;
+        }
+
+        const [letterRes, cycleRes, userRes] = await Promise.all([
+          supabase.from('integration_letters').select('*').eq('cycle_id', resolvedCycleId).single(),
+          supabase.from('cycles').select('started_at').eq('id', resolvedCycleId).single(),
+          supabase.from('users').select('name').eq('id', user.id).single(),
+        ]);
+
+        if (letterRes.data) {
+          const d = letterRes.data;
+          const cycleDate = cycleRes.data
+            ? new Date(cycleRes.data.started_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+            : 'February 2026';
+
+          setLetter({
+            title: d.title || DEMO_LETTER.title,
+            userName: userRes.data?.name || 'User',
+            date: cycleDate,
+            sections: {
+              acknowledgement: d.acknowledgement || DEMO_LETTER.sections.acknowledgement,
+              keyPattern: d.key_pattern || DEMO_LETTER.sections.keyPattern,
+              invitation: d.invitation || DEMO_LETTER.sections.invitation,
+              coreCompass: d.core_compass || DEMO_LETTER.sections.coreCompass,
+              geometryOfFlow: d.geometry_of_flow || DEMO_LETTER.sections.geometryOfFlow,
+              signatureMoment: d.signature_moment || DEMO_LETTER.sections.signatureMoment,
+              continuation: d.continuation || DEMO_LETTER.sections.continuation,
+            },
+          });
+        }
+      } catch (err) {
+        console.error('[Letter] Fetch error:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchLetter();
+  }, [cycleId]);
 
   return (
     <main className="min-h-screen bg-cream-50">

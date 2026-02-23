@@ -18,7 +18,11 @@ export async function POST(request: NextRequest) {
       // Find or create user
       const { data: existingUser } = await supabase.from('users').select('*').eq('id', userId).single();
           if (!existingUser) {
-                  await supabase.from('users').insert({ id: userId, email: 'demo@aurea.app', name: 'Demo User' });
+                  await supabase.from('users').insert({
+                    id: userId,
+                    email: user.email || '',
+                    name: user.user_metadata?.full_name || user.user_metadata?.name || 'User',
+                  });
           }
 
       // Determine cycle number
