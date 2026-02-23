@@ -1,15 +1,15 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { LogOut } from 'lucide-react';
-import { createClient } from '@supabase/supabase-js';
+import { createBrowserClient } from '@/lib/supabase-browser';
 import { BRAND } from '@/config/brand';
 
 const NAV_LINKS = [
   { href: '/dashboard', label: 'Dashboard' },
-  { href: '/letter/demo', label: 'Letter' },
+  { href: '/letter/latest', label: 'Letter' },
   { href: '/directions', label: 'Directions' },
   { href: '/podcast', label: 'Podcast' },
   { href: '/practice', label: 'Practice' },
@@ -21,17 +21,7 @@ export function Navbar() {
   const router = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
 
-  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
-
-  const getSupabase = () => {
-    if (!supabaseRef.current && typeof window !== 'undefined') {
-      supabaseRef.current = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
-    }
-    return supabaseRef.current;
-  };
+  const getSupabase = () => createBrowserClient();
 
   const handleSignOut = async () => {
     setIsSigningOut(true);

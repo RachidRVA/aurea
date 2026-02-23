@@ -54,6 +54,9 @@ const config: Config = {
         serif: ['EB Garamond', 'Georgia', 'serif'],
         sans: ['Inter', 'system-ui', 'sans-serif'],
       },
+      gridTemplateColumns: {
+        '13': 'repeat(13, minmax(0, 1fr))',
+      },
       animation: {
         'breathe': 'breathe 6s ease-in-out infinite',
         'fade-in': 'fadeIn 0.8s ease-out forwards',
