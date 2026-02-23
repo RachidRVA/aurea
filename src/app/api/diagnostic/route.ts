@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase';
+import { createAuthClient, createServerClient } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
-    const supabase = createServerClient();
     try {
+          const authClient = createAuthClient();
+          const { data: { user }, error: authError } = await authClient.auth.getUser();
+
+          if (authError || !user) {
+                  return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+          }
+
+          const supabase = createServerClient();
           const body = await request.json();
           const { responses, integrationMeta, lifeArc } = body;
-          const userId = 'demo-user';
+          const userId = user.id;
 
       // Find or create user
       const { data: existingUser } = await supabase.from('users').select('*').eq('id', userId).single();

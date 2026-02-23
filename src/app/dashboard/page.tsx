@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { Navbar } from '@/components/layout/Navbar';
 import { HeatmapRing } from '@/components/visualizations/HeatmapRing';
 import { CompassQuadrant } from '@/components/visualizations/CompassQuadrant';
 import { BRAND } from '@/config/brand';
@@ -11,10 +12,13 @@ import { STATIONS } from '@/config/stations';
  * AUREA Dashboard
  *
  * The user's home base after analysis. Shows:
+ * - Navbar with navigation
+ * - Podcast player card (featured at top)
  * - Heatmap Ring (coherence overview)
  * - Compass Quadrant (Gravity/Grace)
+ * - Directions preview section
  * - Quick links to Integration Letter, Practice Suite
- * - Cycle history for return visits
+ * - Station coherence table
  */
 
 // Demo data for visualization (replace with API fetch in production)
@@ -49,25 +53,56 @@ const DEMO_DATA = {
   ],
 };
 
+const DEMO_DIRECTIONS = [
+  {
+    title: 'Structural Leadership',
+    confidence: 'gold' as const,
+    whyThisFits: 'Your natural ability to see patterns and organize complexity makes you suited to roles where coherence is the deliverable.',
+  },
+  {
+    title: 'Contemplative Innovation',
+    confidence: 'emerald' as const,
+    whyThisFits: 'You pair deep reflection with practical execution, creating innovation rooted in clarity rather than haste.',
+  },
+  {
+    title: 'Transmitter & Teacher',
+    confidence: 'teal' as const,
+    whyThisFits: 'You have a gift for translating complexity into clarity. Teaching is not your side practice — it is your highest calling.',
+  },
+];
+
 export default function DashboardPage() {
   const [data] = useState(DEMO_DATA);
 
   return (
     <main className="min-h-screen bg-cream-50">
-      {/* Header */}
-      <header className="border-b border-gold-200/20 bg-cream-50/90 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="font-serif text-xl text-gray-800">{BRAND.name}</Link>
-          <nav className="flex items-center gap-6 text-sm font-sans">
-            <Link href="/dashboard" className="text-gold-700">Dashboard</Link>
-            <Link href="/letter/demo" className="text-gray-500 hover:text-gray-700 transition-colors">Letter</Link>
-            <Link href="/practice" className="text-gray-500 hover:text-gray-700 transition-colors">Practice</Link>
-            <Link href="/return" className="text-gray-500 hover:text-gray-700 transition-colors">Return</Link>
-          </nav>
-        </div>
-      </header>
+      <Navbar />
 
       <div className="max-w-6xl mx-auto px-6 py-12 space-y-16">
+        {/* Featured Podcast Card */}
+        <section className="bg-gradient-to-br from-gold-50 to-gold-100/50 border border-gold-200/50 rounded-3xl p-8 md:p-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+            <div className="space-y-4">
+              <p className="text-xs font-sans uppercase tracking-[0.15em] text-gold-700/70">Just for you</p>
+              <h2 className="font-serif text-3xl text-gray-900">Your Personalized Podcast</h2>
+              <p className="font-serif text-base text-gray-700 leading-relaxed">
+                {data.letter.title}
+              </p>
+              <p className="font-sans text-sm text-gray-600">~30 minutes of contemplative reflection, synthesized from your diagnostic.</p>
+              <Link href="/podcast" className="btn-primary inline-block mt-4">
+                Listen Now →
+              </Link>
+            </div>
+            <div className="flex justify-center">
+              <div className="w-32 h-32 rounded-full bg-white/80 border-4 border-gold-300/50 flex items-center justify-center shadow-lg">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-gold-400 to-gold-600 flex items-center justify-center">
+                  <div className="text-white text-4xl">♪</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Hero section */}
         <section className="text-center space-y-4">
           <h1 className="font-serif text-4xl text-gray-900">Your Living Architecture</h1>
@@ -117,6 +152,32 @@ export default function DashboardPage() {
             Your system stands in dynamic equilibrium — gravity and grace moving in near-perfect rhythm.
             The architecture is tuned; the next evolution is transmission.
           </p>
+        </section>
+
+        {/* Directions Preview */}
+        <section className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="font-serif text-2xl text-gray-800">Your Directions</h2>
+            <Link href="/directions" className="text-sm text-gold-700 hover:text-gold-900 font-sans">View All →</Link>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {DEMO_DIRECTIONS.map((direction, i) => {
+              const confidenceColors = {
+                gold: 'bg-gold-100 text-gold-700 border-gold-300/50',
+                emerald: 'bg-emerald-100 text-emerald-700 border-emerald-300/50',
+                teal: 'bg-teal-100 text-teal-700 border-teal-300/50',
+              };
+              return (
+                <Link key={i} href="/directions" className="practice-card space-y-3 block">
+                  <div className={`inline-flex px-3 py-1 rounded-full border text-xs font-sans font-medium capitalize ${confidenceColors[direction.confidence]}`}>
+                    {direction.confidence}
+                  </div>
+                  <h3 className="font-serif text-lg text-gray-800">{direction.title}</h3>
+                  <p className="text-sm text-gray-600 leading-relaxed">{direction.whyThisFits}</p>
+                </Link>
+              );
+            })}
+          </div>
         </section>
 
         {/* Quick access cards */}

@@ -1,7 +1,33 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { createClient } from '@supabase/supabase-js';
 import { BRAND } from '@/config/brand';
 
 export default function LandingPage() {
+  const [isSignedIn, setIsSignedIn] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+
+    const checkAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setIsSignedIn(!!session);
+      } catch (err) {
+        console.error('Auth check error:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, []);
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-6 bg-cream-50">
       {/* Ambient background */}
@@ -41,12 +67,27 @@ export default function LandingPage() {
 
         {/* CTA */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-          <Link href="/diagnostic" className="btn-primary text-center">
-            Begin Your Diagnostic
-          </Link>
-          <Link href="/dashboard" className="btn-serene text-center">
-            Return to Your Map
-          </Link>
+          {loading ? (
+            <div className="h-12 w-64 bg-gray-200/30 rounded-xl animate-pulse" />
+          ) : isSignedIn ? (
+            <>
+              <Link href="/dashboard" className="btn-primary text-center">
+                Go to Dashboard
+              </Link>
+              <Link href="/diagnostic" className="btn-serene text-center">
+                Start New Diagnostic
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link href="/auth/signup" className="btn-primary text-center">
+                Begin Your Journey
+              </Link>
+              <Link href="/auth/signin" className="btn-serene text-center">
+                Sign In
+              </Link>
+            </>
+          )}
         </div>
 
         {/* Footer note */}

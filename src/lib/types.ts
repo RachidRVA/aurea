@@ -145,6 +145,41 @@ export interface RecalibrationRhythm {
   guidance: string;
 }
 
+// ─── DIRECTION MAP ──────────────────────────────────────────
+
+export interface DirectionCard {
+  title: string;
+  confidence: 'gold' | 'emerald' | 'teal';
+  whyThisFits: string;
+  whereThisLives: string[];
+  entryPoints: string[];
+  yourEdge: string;
+  evidenceStations: number[];
+}
+
+export interface DirectionMap {
+  directions: DirectionCard[];
+  summary: string;
+  generatedAt: string;
+}
+
+// ─── PODCAST ────────────────────────────────────────────────
+
+export interface PodcastScript {
+  title: string;
+  script: string;
+  chapters: { name: string; startWord: number }[];
+  wordCount: number;
+  estimatedDurationSeconds: number;
+}
+
+export interface PodcastAudio {
+  storagePath: string;
+  durationSeconds: number;
+  fileSizeBytes: number;
+  format: string;
+}
+
 // ─── FULL DELIVERABLE PACKAGE ────────────────────────────────
 
 export interface DeliverablePackage {
@@ -157,4 +192,6 @@ export interface DeliverablePackage {
   integrationLetter: IntegrationLetter;
   practiceCards: PracticeCard[];
   recalibration: RecalibrationRhythm;
+  directionMap?: DirectionMap;
+  podcastScript?: PodcastScript;
 }
