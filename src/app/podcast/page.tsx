@@ -1,122 +1,398 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { Play, Pause, Volume2 } from 'lucide-react';
+import { Play, Pause, Volume2, SkipForward, SkipBack } from 'lucide-react';
 import { BRAND } from '@/config/brand';
+import { createClient } from '@supabase/supabase-js';
 
-const DEMO_PODCAST = {
-  title: 'The Geometry of Light and Flow',
-  duration: 1847, // seconds
-  script: `Welcome to your personalized Aurea podcast. This audio letter was written specifically for you, woven from the patterns your responses revealed.
-
-The Geometry of Light and Flow
-
-Light inhabits structure, not the other way around. This is the central truth your coherence map reflects.
-
-You have spent years building architectures — some visible, some held in the quiet frameworks of how you think, lead, and relate. Your stations of clarity, consistency, and coherence reveal a mind that naturally organizes complexity into proportion. You see the hinge points where one system connects to another. You understand that every design has a geometry underneath it.
-
-But there is something more subtle in your pattern. It is not just your capacity to build. It is your capacity to let light move through what you build. In the descent arc, your foundation is stable. You trust your own ground. In the hinge zone, you flex between effort and grace with remarkable balance. And in the ascent, you naturally extend your coherence outward — not to dominate space, but to illuminate it.
-
-This is the signature of someone for whom leadership has never been about control. It has always been about transmission.
-
-The invitation in your geometry is to trust this even more. You have proven, to yourself and others, that you can structure clarity. The next evolution is understanding that your truest work is not to build more buildings. It is to create conditions where others can build from understanding rather than confusion. To be a transmitter of the geometry itself.
-
-Where does this show up? Everywhere. In how your mind moves across a problem, you are already teaching. In how you lead conversations, you are already revealing pattern. Your next practice is to lean into this consciously. To understand that your primary offering is not your output — it is your way of seeing.
-
-Three directions emerge from this coherence. First: structural leadership. You are exceptionally suited to roles where the architecture itself is the deliverable. Where the way something is organized determines whether it can breathe. Second: contemplative innovation. You pair deep reflection with practical execution. This creates a rare form of problem-solving rooted in understanding rather than haste. Third: teaching and transmission. You have a gift for translating complexity into clarity. Your natural vocabulary is geometric. You speak in patterns and proportions. And people feel the difference.
-
-But underneath all three is something simpler. It is this: the world needs more people who understand that coherence is not weakness. That taking time to make something whole is not delay — it is the only path to something that will actually last.
-
-Your practice in this cycle is twofold. First, notice. Notice where you naturally bring geometry to chaos. Notice where your presence itself seems to help others think more clearly. Notice the moments when light moves easiest through your structures. These are not accidents. These are hints of your path.
-
-Second, choose. In the next 30 days, choose one of your directions. Not the most practical. Not the most lucrative. The one that feels most like home. The one where your work becomes indistinguishable from your prayer. Explore it. Take one small action. Plant a seed in that soil. You already know how to build. Now practice believing that your geometry matters enough to be shared.
-
-The world will not organize itself. It will not clarify itself. It needs translators. People who understand that proportion and flow are not luxuries — they are necessities. You are one of those people. Trust it.
-
-This is your Aurea. This is your map. Walk it with the confidence of someone who has already proven, to themselves, that they can create coherence. Now extend that gift outward.
-
-Thank you for this time. For these hours of reflection. For the honesty of your responses. For allowing us to map your geometry. The next return is in six months. By then, you will have proven your direction. You will have learned something new about yourself. You will be ready to go deeper.
-
-Until then, tend your axis. Remember your proportions. And trust the light.`,
-  chapters: [
-    { name: 'Introduction: Light Inhabits Structure', startWord: 0 },
-    { name: 'Your Geometry & Pattern', startWord: 45 },
-    { name: 'Transmission as Leadership', startWord: 210 },
-    { name: 'Three Paths Forward', startWord: 340 },
-    { name: 'Your Practice & Closing', startWord: 490 },
-  ],
-};
-
+// ─── TYPES ──────────────────────────────────────────
 interface Chapter {
   name: string;
   startWord: number;
-  startTime?: number;
 }
 
+interface PodcastData {
+  title: string;
+  script_text: string;
+  chapter_markers: Chapter[];
+  word_count: number;
+}
+
+interface TextChunk {
+  text: string;
+  chapterIndex: number;
+  hasPauseAfter: boolean;
+}
+
+// ─── DEMO DATA ──────────────────────────────────────
+const DEMO_PODCAST: PodcastData = {
+  title: 'The Geometry of Light and Flow',
+  word_count: 620,
+  script_text: `Welcome to your personalized Aurea podcast. This audio letter was written specifically for you, woven from the patterns your responses revealed.
+
+[pause]
+
+Chapter 1 — The Foundation
+
+Light inhabits structure, not the other way around. This is the central truth your coherence map reflects. You have spent years building architectures — some visible, some held in the quiet frameworks of how you think, lead, and relate. Your stations of clarity, consistency, and coherence reveal a mind that naturally organizes complexity into proportion. You see the hinge points where one system connects to another. You understand that every design has a geometry underneath it.
+
+[pause]
+
+But there is something more subtle in your pattern. It is not just your capacity to build. It is your capacity to let light move through what you build. In the descent arc, your foundation is stable. You trust your own ground. In the hinge zone, you flex between effort and grace with remarkable balance. And in the ascent, you naturally extend your coherence outward — not to dominate space, but to illuminate it.
+
+[pause]
+
+Chapter 2 — The Present Coherence
+
+This is the signature of someone for whom leadership has never been about control. It has always been about transmission. The invitation in your geometry is to trust this even more. You have proven, to yourself and others, that you can structure clarity.
+
+[pause]
+
+The next evolution is understanding that your truest work is not to build more buildings. It is to create conditions where others can build from understanding rather than confusion. To be a transmitter of the geometry itself.
+
+[pause]
+
+Chapter 3 — The Direction Forward
+
+Three directions emerge from this coherence. First: structural leadership. You are exceptionally suited to roles where the architecture itself is the deliverable. Where the way something is organized determines whether it can breathe.
+
+Second: contemplative innovation. You pair deep reflection with practical execution. This creates a rare form of problem-solving rooted in understanding rather than haste.
+
+Third: teaching and transmission. You have a gift for translating complexity into clarity. Your natural vocabulary is geometric. You speak in patterns and proportions.
+
+[pause]
+
+Chapter 4 — The Closing
+
+Your practice in this cycle is twofold. First, notice where you naturally bring geometry to chaos. Notice where your presence itself seems to help others think more clearly. These are not accidents. These are hints of your path.
+
+[pause]
+
+Second, choose. In the next 30 days, choose one of your directions. Not the most practical. Not the most lucrative. The one that feels most like home. The one where your work becomes indistinguishable from your prayer.
+
+The world will not organize itself. It needs translators. People who understand that proportion and flow are not luxuries — they are necessities. You are one of those people. Trust it.
+
+[pause]
+
+This is your Aurea. This is your map. Walk it with confidence. The next return is in six months. Until then, tend your axis. Remember your proportions. And trust the light.`,
+  chapter_markers: [
+    { name: 'The Foundation', startWord: 0 },
+    { name: 'The Present Coherence', startWord: 200 },
+    { name: 'The Direction Forward', startWord: 340 },
+    { name: 'The Closing', startWord: 460 },
+  ],
+};
+
+// ─── HELPERS ────────────────────────────────────────
 function timeToString(seconds: number): string {
   const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
+  const secs = Math.floor(seconds % 60);
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-export default function PodcastPage() {
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [chapters, setChapters] = useState<Chapter[]>(DEMO_PODCAST.chapters);
+function splitIntoChunks(text: string): TextChunk[] {
+  // Split by chapter headings
+  const chapterSplits = text.split(/Chapter \d+ —/);
+  const chunks: TextChunk[] = [];
 
-  useEffect(() => {
-    // Calculate approximate chapter start times based on word count
-    // Assuming ~140 words per minute reading speed
-    const chaptersWithTime = DEMO_PODCAST.chapters.map(ch => ({
-      ...ch,
-      startTime: (ch.startWord / 140) * 60,
-    }));
-    setChapters(chaptersWithTime);
-  }, []);
-
-  const togglePlayPause = () => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause();
-      } else {
-        audioRef.current.play();
+  chapterSplits.forEach((section, idx) => {
+    if (!section.trim()) return;
+    // Split by [pause] markers
+    const parts = section.split(/\[pause\]/);
+    parts.forEach((part, pIdx) => {
+      const cleaned = part.trim().replace(/\s+/g, ' ');
+      if (cleaned.length > 0) {
+        chunks.push({
+          text: cleaned,
+          chapterIndex: Math.max(0, idx - 1),
+          hasPauseAfter: pIdx < parts.length - 1,
+        });
       }
-      setIsPlaying(!isPlaying);
-    }
-  };
-
-  const handleTimeUpdate = () => {
-    if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime);
-    }
-  };
-
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const time = parseFloat(e.target.value);
-    setCurrentTime(time);
-    if (audioRef.current) {
-      audioRef.current.currentTime = time;
-    }
-  };
-
-  const handleChapterClick = (startTime: number) => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = startTime;
-      setCurrentTime(startTime);
-      if (!isPlaying) {
-        audioRef.current.play();
-        setIsPlaying(true);
-      }
-    }
-  };
-
-  const currentChapter = chapters.find((ch, i) => {
-    const nextChapter = chapters[i + 1];
-    return ch.startTime !== undefined && (nextChapter ? currentTime < (nextChapter.startTime || Infinity) && currentTime >= ch.startTime : currentTime >= ch.startTime);
+    });
   });
 
+  return chunks;
+}
+
+// ─── PREFERRED VOICES ───────────────────────────────
+const PREFERRED_VOICES = [
+  'Samantha', 'Daniel', 'Karen', 'Moira', 'Fiona', 'Tessa',
+  'Google UK English Female', 'Google UK English Male',
+  'Microsoft Zira', 'Microsoft David',
+];
+
+// ─── COMPONENT ──────────────────────────────────────
+export default function PodcastPage() {
+  const [podcast, setPodcast] = useState<PodcastData>(DEMO_PODCAST);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
+  const [speed, setSpeed] = useState(1);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoice, setSelectedVoice] = useState('');
+  const [totalEstSec, setTotalEstSec] = useState(0);
+
+  const startTimeRef = useRef(0);
+  const elapsedBeforePauseRef = useRef(0);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const chunksRef = useRef<TextChunk[]>([]);
+  const currentChunkRef = useRef(0);
+  const isPlayingRef = useRef(false);
+  const speedRef = useRef(1);
+
+  // ─── LOAD REAL DATA FROM SUPABASE ─────────────────
+  useEffect(() => {
+    async function fetchPodcast() {
+      try {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        if (!url || !key) return;
+
+        const supabase = createClient(url, key);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data, error } = await supabase
+          .from('podcast_scripts')
+          .select('title, script_text, chapter_markers, word_count')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (data && !error) {
+          setPodcast(data as PodcastData);
+        }
+      } catch {
+        // Fall back to demo data silently
+      }
+    }
+    fetchPodcast();
+  }, []);
+
+  // ─── CALCULATE DURATION ───────────────────────────
+  useEffect(() => {
+    const words = podcast.script_text.split(/\s+/).length;
+    const wordsPerMin = 145; // natural speaking pace
+    setTotalEstSec(Math.ceil((words / wordsPerMin) * 60));
+  }, [podcast]);
+
+  // ─── LOAD VOICES ──────────────────────────────────
+  useEffect(() => {
+    function loadVoices() {
+      const available = speechSynthesis.getVoices();
+      if (available.length === 0) return;
+
+      const sorted = [...available].sort((a, b) => {
+        const aP = PREFERRED_VOICES.findIndex(p => a.name.includes(p));
+        const bP = PREFERRED_VOICES.findIndex(p => b.name.includes(p));
+        if (aP !== -1 && bP === -1) return -1;
+        if (aP === -1 && bP !== -1) return 1;
+        if (aP !== -1 && bP !== -1) return aP - bP;
+        const aEn = a.lang.startsWith('en');
+        const bEn = b.lang.startsWith('en');
+        if (aEn && !bEn) return -1;
+        if (!aEn && bEn) return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      setVoices(sorted);
+      if (!selectedVoice && sorted.length > 0) {
+        setSelectedVoice(sorted[0].name);
+      }
+    }
+
+    loadVoices();
+    speechSynthesis.onvoiceschanged = loadVoices;
+    return () => { speechSynthesis.onvoiceschanged = null; };
+  }, [selectedVoice]);
+
+  // ─── CHROME TTS KEEPALIVE ─────────────────────────
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (speechSynthesis.speaking && !speechSynthesis.paused) {
+        speechSynthesis.pause();
+        speechSynthesis.resume();
+      }
+    }, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // ─── CLEANUP ON UNMOUNT ───────────────────────────
+  useEffect(() => {
+    return () => {
+      speechSynthesis.cancel();
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
+
+  // ─── TIMER ────────────────────────────────────────
+  const startTimer = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      const raw = elapsedBeforePauseRef.current + (Date.now() - startTimeRef.current) / 1000;
+      setElapsed(raw * speedRef.current);
+    }, 500);
+  }, []);
+
+  const stopTimer = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+  }, []);
+
+  // ─── SPEAK CHUNKS RECURSIVELY ─────────────────────
+  const speakChunks = useCallback((chunks: TextChunk[], index: number) => {
+    if (index >= chunks.length || !isPlayingRef.current) {
+      // Finished
+      setIsPlaying(false);
+      setIsPaused(false);
+      isPlayingRef.current = false;
+      stopTimer();
+      setElapsed(totalEstSec);
+      return;
+    }
+
+    const chunk = chunks[index];
+    currentChunkRef.current = index;
+    setCurrentChapterIndex(chunk.chapterIndex);
+
+    const utterance = new SpeechSynthesisUtterance(chunk.text);
+    utterance.rate = speedRef.current;
+    utterance.pitch = 1.0;
+
+    const voice = voices.find(v => v.name === selectedVoice);
+    if (voice) utterance.voice = voice;
+
+    utterance.onend = () => {
+      if (!isPlayingRef.current) return;
+      const delay = chunk.hasPauseAfter ? 1200 : 300;
+      setTimeout(() => {
+        if (isPlayingRef.current) {
+          speakChunks(chunks, index + 1);
+        }
+      }, delay);
+    };
+
+    utterance.onerror = (e) => {
+      if (e.error !== 'canceled' && isPlayingRef.current) {
+        setTimeout(() => speakChunks(chunks, index + 1), 500);
+      }
+    };
+
+    speechSynthesis.speak(utterance);
+  }, [voices, selectedVoice, totalEstSec, stopTimer]);
+
+  // ─── START PLAYBACK ───────────────────────────────
+  const startPlayback = useCallback((fromChapter: number = 0) => {
+    speechSynthesis.cancel();
+    stopTimer();
+
+    const chunks = splitIntoChunks(podcast.script_text);
+    chunksRef.current = chunks;
+
+    const startChunks = fromChapter > 0
+      ? chunks.filter(c => c.chapterIndex >= fromChapter)
+      : chunks;
+
+    if (startChunks.length === 0) return;
+
+    isPlayingRef.current = true;
+    setIsPlaying(true);
+    setIsPaused(false);
+
+    // Estimate elapsed time offset
+    const skipped = chunks.length - startChunks.length;
+    const portion = skipped / chunks.length;
+    elapsedBeforePauseRef.current = portion * totalEstSec;
+    startTimeRef.current = Date.now();
+
+    speakChunks(startChunks, 0);
+    startTimer();
+  }, [podcast, totalEstSec, speakChunks, startTimer, stopTimer]);
+
+  // ─── STOP PLAYBACK ───────────────────────────────
+  const stopPlayback = useCallback(() => {
+    speechSynthesis.cancel();
+    isPlayingRef.current = false;
+    setIsPlaying(false);
+    setIsPaused(false);
+    stopTimer();
+  }, [stopTimer]);
+
+  // ─── TOGGLE PLAY/PAUSE ───────────────────────────
+  const togglePlayPause = () => {
+    if (isPlaying && !isPaused) {
+      // Pause
+      speechSynthesis.pause();
+      setIsPaused(true);
+      elapsedBeforePauseRef.current += (Date.now() - startTimeRef.current) / 1000;
+      stopTimer();
+    } else if (isPaused) {
+      // Resume
+      speechSynthesis.resume();
+      setIsPaused(false);
+      startTimeRef.current = Date.now();
+      startTimer();
+    } else {
+      // Start fresh
+      startPlayback(0);
+    }
+  };
+
+  // ─── CHAPTER CLICK ────────────────────────────────
+  const handleChapterClick = (chapterIndex: number) => {
+    stopPlayback();
+    setTimeout(() => startPlayback(chapterIndex), 100);
+  };
+
+  // ─── SKIP ─────────────────────────────────────────
+  const skipForward = () => {
+    const next = Math.min(currentChapterIndex + 1, (podcast.chapter_markers?.length || 1) - 1);
+    stopPlayback();
+    setTimeout(() => startPlayback(next), 100);
+  };
+
+  const skipBack = () => {
+    const prev = Math.max(currentChapterIndex - 1, 0);
+    stopPlayback();
+    setTimeout(() => startPlayback(prev), 100);
+  };
+
+  // ─── SPEED CHANGE ─────────────────────────────────
+  const handleSpeedChange = (newSpeed: number) => {
+    setSpeed(newSpeed);
+    speedRef.current = newSpeed;
+    if (isPlaying) {
+      if (!isPaused) {
+        elapsedBeforePauseRef.current += (Date.now() - startTimeRef.current) / 1000;
+      }
+      speechSynthesis.cancel();
+      isPlayingRef.current = false;
+      const chapter = currentChapterIndex;
+      setTimeout(() => startPlayback(chapter), 100);
+    }
+  };
+
+  // ─── VOICE CHANGE ─────────────────────────────────
+  const handleVoiceChange = (voiceName: string) => {
+    setSelectedVoice(voiceName);
+    if (isPlaying) {
+      if (!isPaused) {
+        elapsedBeforePauseRef.current += (Date.now() - startTimeRef.current) / 1000;
+      }
+      speechSynthesis.cancel();
+      isPlayingRef.current = false;
+      const chapter = currentChapterIndex;
+      setTimeout(() => startPlayback(chapter), 100);
+    }
+  };
+
+  // ─── PROGRESS ─────────────────────────────────────
+  const progressPct = totalEstSec > 0 ? Math.min(100, (elapsed / totalEstSec) * 100) : 0;
+  const currentChapter = podcast.chapter_markers?.[currentChapterIndex];
+
+  // ─── RENDER ───────────────────────────────────────
   return (
     <main className="min-h-screen bg-cream-50">
       {/* Header */}
@@ -133,100 +409,153 @@ export default function PodcastPage() {
       </header>
 
       <div className="max-w-2xl mx-auto px-6 py-16 space-y-12">
-        {/* Title section */}
+        {/* Title */}
         <section className="text-center space-y-4">
-          <h1 className="font-serif text-5xl text-gray-900">{DEMO_PODCAST.title}</h1>
+          <h1 className="font-serif text-5xl text-gray-900">{podcast.title}</h1>
           <p className="font-serif text-lg text-gray-500 italic">Your personalized audio letter</p>
         </section>
 
-        {/* Player section */}
-        <section className="space-y-8">
-          {/* Main player */}
-          <div className="bg-white/80 backdrop-blur-sm border border-gold-200/50 rounded-3xl p-12 space-y-8">
-            {/* Play button */}
-            <div className="flex justify-center">
+        {/* Player */}
+        <section className="space-y-6">
+          <div className="bg-white/80 backdrop-blur-sm border border-gold-200/50 rounded-3xl p-10 space-y-6">
+            {/* Main controls */}
+            <div className="flex items-center justify-center gap-6">
+              <button onClick={skipBack} className="w-10 h-10 rounded-full bg-gold-100 text-gold-600 flex items-center justify-center hover:bg-gold-200 transition-colors">
+                <SkipBack className="w-5 h-5" />
+              </button>
+
               <button
                 onClick={togglePlayPause}
-                className="w-24 h-24 rounded-full bg-gradient-to-br from-gold-400 to-gold-600 text-white flex items-center justify-center hover:shadow-xl hover:scale-105 transition-all duration-300 group"
+                className={`w-20 h-20 rounded-full flex items-center justify-center hover:shadow-xl hover:scale-105 transition-all duration-300 ${
+                  isPlaying && !isPaused
+                    ? 'bg-gradient-to-br from-red-400 to-red-600 text-white'
+                    : 'bg-gradient-to-br from-gold-400 to-gold-600 text-white'
+                }`}
               >
-                {isPlaying ? (
-                  <Pause className="w-10 h-10 fill-white" />
+                {isPlaying && !isPaused ? (
+                  <Pause className="w-8 h-8 fill-white" />
                 ) : (
-                  <Play className="w-10 h-10 fill-white ml-1" />
+                  <Play className="w-8 h-8 fill-white ml-1" />
                 )}
+              </button>
+
+              <button onClick={skipForward} className="w-10 h-10 rounded-full bg-gold-100 text-gold-600 flex items-center justify-center hover:bg-gold-200 transition-colors">
+                <SkipForward className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Time display */}
-            <div className="text-center space-y-2">
-              <p className="font-sans text-sm text-gray-500">
-                {timeToString(currentTime)} / {timeToString(DEMO_PODCAST.duration)}
+            {/* Animated wave */}
+            {isPlaying && !isPaused && (
+              <div className="flex items-end justify-center gap-[3px] h-5">
+                {[6, 12, 18, 10, 20, 14, 8].map((h, i) => (
+                  <div
+                    key={i}
+                    className="w-[3px] rounded-sm bg-gold-400"
+                    style={{
+                      animation: `wave 0.8s ease-in-out ${i * 0.1}s infinite alternate`,
+                      height: `${h}px`,
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Status */}
+            <div className="text-center space-y-1">
+              <p className="text-xs font-sans text-gray-400 uppercase tracking-widest">
+                {!isPlaying ? 'Ready to play' : isPaused ? 'Paused' : 'Playing'}
               </p>
               <p className="font-serif text-sm text-gold-700 italic">
-                {currentChapter ? `Listening to: ${currentChapter.name}` : 'Begin listening'}
+                {currentChapter ? currentChapter.name : podcast.title}
               </p>
             </div>
 
             {/* Progress bar */}
             <div className="space-y-2">
-              <input
-                type="range"
-                min="0"
-                max={DEMO_PODCAST.duration}
-                value={currentTime}
-                onChange={handleSeek}
-                className="w-full h-2 bg-gold-100 rounded-full appearance-none cursor-pointer accent-gold-500"
-              />
+              <div
+                className="w-full h-2 bg-gold-100 rounded-full cursor-pointer overflow-hidden"
+                onClick={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const pct = (e.clientX - rect.left) / rect.width;
+                  const chapters = podcast.chapter_markers || [];
+                  const chapter = Math.min(chapters.length - 1, Math.floor(pct * chapters.length));
+                  handleChapterClick(Math.max(0, chapter));
+                }}
+              >
+                <div
+                  className="h-full bg-gradient-to-r from-gold-400 to-gold-500 rounded-full transition-all duration-500"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
               <div className="flex justify-between text-xs text-gray-400 font-sans">
-                <span>{timeToString(currentTime)}</span>
-                <span>{timeToString(DEMO_PODCAST.duration)}</span>
+                <span>{timeToString(elapsed)}</span>
+                <span>~{timeToString(totalEstSec)}</span>
               </div>
             </div>
 
-            {/* Hidden audio element */}
-            <audio
-              ref={audioRef}
-              onTimeUpdate={handleTimeUpdate}
-              onEnded={() => setIsPlaying(false)}
-              className="hidden"
-            >
-              <source src="/audio/podcast-demo.mp3" type="audio/mpeg" />
-              Your browser does not support the audio element.
-            </audio>
+            {/* Speed + Voice controls */}
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400 uppercase tracking-wide font-sans">Speed</span>
+                {[0.8, 1, 1.2, 1.5].map(s => (
+                  <button
+                    key={s}
+                    onClick={() => handleSpeedChange(s)}
+                    className={`px-3 py-1 rounded-lg text-xs font-sans transition-all ${
+                      speed === s
+                        ? 'bg-gold-500 text-white'
+                        : 'bg-gold-50 text-gray-500 hover:bg-gold-100'
+                    }`}
+                  >
+                    {s}×
+                  </button>
+                ))}
+              </div>
 
-            {/* Volume info */}
+              {voices.length > 0 && (
+                <select
+                  value={selectedVoice}
+                  onChange={(e) => handleVoiceChange(e.target.value)}
+                  className="text-xs font-sans bg-gold-50 border border-gold-200/50 rounded-lg px-3 py-1.5 text-gray-600 max-w-[200px]"
+                >
+                  {voices.map(v => (
+                    <option key={v.name} value={v.name}>
+                      {v.name} ({v.lang})
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
             <div className="flex items-center justify-center gap-2 text-gray-400">
               <Volume2 className="w-4 h-4" />
-              <span className="text-xs font-sans">Optimal listening volume</span>
+              <span className="text-xs font-sans">Browser text-to-speech · Best with headphones</span>
             </div>
-          </div>
-
-          {/* Script fallback */}
-          <div className="text-center text-sm text-gray-500 font-sans italic">
-            (Audio playback requires an mp3 file. Script is shown below as fallback.)
           </div>
         </section>
 
-        {/* Chapters section */}
+        {/* Chapters */}
         <section className="space-y-4">
           <h2 className="font-serif text-2xl text-gray-900">Chapters</h2>
           <div className="space-y-2">
-            {chapters.map((chapter, i) => {
-              const isCurrentChapter = currentChapter?.name === chapter.name;
+            {(podcast.chapter_markers || []).map((chapter, i) => {
+              const isCurrent = currentChapterIndex === i && isPlaying;
               return (
                 <button
                   key={i}
-                  onClick={() => chapter.startTime !== undefined && handleChapterClick(chapter.startTime)}
+                  onClick={() => handleChapterClick(i)}
                   className={`w-full text-left px-4 py-3 rounded-xl transition-all duration-300 ${
-                    isCurrentChapter
+                    isCurrent
                       ? 'bg-gold-100 border border-gold-300/50 text-gold-700'
                       : 'bg-white border border-gold-200/30 text-gray-700 hover:border-gold-300/50 hover:bg-gold-50/30'
                   }`}
                 >
                   <div className="flex items-center justify-between gap-4">
-                    <span className="font-serif text-base">{chapter.name}</span>
+                    <span className="font-serif text-base">
+                      {isCurrent && '▶ '}{chapter.name}
+                    </span>
                     <span className="text-xs font-sans text-gray-400">
-                      {chapter.startTime !== undefined && timeToString(chapter.startTime)}
+                      Ch {i + 1}
                     </span>
                   </div>
                 </button>
@@ -235,21 +564,25 @@ export default function PodcastPage() {
           </div>
         </section>
 
-        {/* Script section */}
+        {/* Full Script */}
         <section className="space-y-6">
           <h2 className="font-serif text-2xl text-gray-900">Full Script</h2>
           <div className="space-y-4 max-w-none">
-            {DEMO_PODCAST.script.split('\n\n').map((paragraph, i) => (
-              <p key={i} className="font-serif text-base text-gray-700 leading-relaxed">
-                {paragraph}
-              </p>
-            ))}
+            {podcast.script_text
+              .replace(/\[pause\]/g, '')
+              .split('\n\n')
+              .filter(p => p.trim())
+              .map((paragraph, i) => (
+                <p key={i} className="font-serif text-base text-gray-700 leading-relaxed">
+                  {paragraph.trim()}
+                </p>
+              ))}
           </div>
         </section>
 
         {/* Next steps */}
         <section className="bg-white/60 border border-gold-200/30 rounded-2xl p-8 space-y-4 text-center">
-          <h3 className="font-serif text-2xl text-gray-900">What's Next?</h3>
+          <h3 className="font-serif text-2xl text-gray-900">What&apos;s Next?</h3>
           <p className="font-serif text-base text-gray-700 leading-relaxed">
             Listen to this letter in a quiet space. Let it settle. Then explore your directions and choose one path forward in the next 30 days.
           </p>
@@ -268,6 +601,14 @@ export default function PodcastPage() {
           </p>
         </div>
       </footer>
+
+      {/* Wave animation keyframes */}
+      <style jsx>{`
+        @keyframes wave {
+          0% { height: 4px; }
+          100% { height: 20px; }
+        }
+      `}</style>
     </main>
   );
 }
