@@ -5,11 +5,18 @@ import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
 import { BRAND } from '@/config/brand';
 
+// Access codes that grant entry — set via env var or use defaults
+// Multiple codes can be comma-separated in the env var
+const VALID_ACCESS_CODES = (
+  process.env.NEXT_PUBLIC_ACCESS_CODES || 'AUREA-BETA-2026,AUREA-FOUNDERS'
+).split(',').map(c => c.trim().toUpperCase());
+
 export default function SignUpPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [accessCode, setAccessCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -30,6 +37,12 @@ export default function SignUpPage() {
     e.preventDefault();
     setError('');
 
+    // Validate access code first
+    if (!VALID_ACCESS_CODES.includes(accessCode.trim().toUpperCase())) {
+      setError('Invalid access code. Please contact the Aurea team for access.');
+      return;
+    }
+
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -49,7 +62,7 @@ export default function SignUpPage() {
         email,
         password,
         options: {
-          data: { full_name: name },
+          data: { full_name: name, access_code: accessCode.trim().toUpperCase() },
           emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       });
@@ -97,6 +110,28 @@ export default function SignUpPage() {
               {error}
             </div>
           )}
+
+          {/* Access Code — first field, prominent */}
+          <div className="space-y-2">
+            <label className="text-sm font-sans text-gray-600">
+              Access Code <span className="text-gold-600">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              value={accessCode}
+              onChange={e => setAccessCode(e.target.value)}
+              className="w-full px-4 py-3 bg-gold-50/50 border border-gold-300/60 rounded-xl font-sans text-gray-900 focus:outline-none focus:border-gold-500 focus:ring-1 focus:ring-gold-400/30 transition-colors uppercase tracking-wider text-center"
+              placeholder="Enter your access code"
+              autoComplete="off"
+              spellCheck={false}
+            />
+            <p className="text-xs text-gray-400 font-sans text-center">
+              Aurea is in private beta. You need an access code to sign up.
+            </p>
+          </div>
+
+          <div className="border-t border-gold-200/30" />
 
           <div className="space-y-2">
             <label className="text-sm font-sans text-gray-600">Full Name</label>
