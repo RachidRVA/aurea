@@ -27,7 +27,7 @@ const INTEGRATION_STEPS = ['lexicon', 'life-arc', 'feeling', 'os-name'] as const
 const ARC_BOUNDARIES: Record<number, 'ascent' | 'descent' | 'coherence'> = {
   6: 'ascent',    // After station +6 (end of ascent arc)
   12: 'descent',  // After station -6 (end of descent arc)
-  16: 'coherence', // After os-name (end of integration, before submit)
+  // coherence is handled by handleSubmit on the last step
 };
 
 type TransitionPhase =
@@ -42,6 +42,7 @@ export default function DiagnosticPage() {
   const [transition, setTransition] = useState<TransitionPhase>({ type: 'none' });
   const [pulseReading, setPulseReading] = useState<string | null>(null);
   const [pulseLoading, setPulseLoading] = useState(false);
+  const [coherenceShown, setCoherenceShown] = useState(false);
 
   const totalSteps = DIAGNOSTIC_ORDER.length + INTEGRATION_STEPS.length;
   const isStationStep = currentStation < DIAGNOSTIC_ORDER.length;
@@ -137,12 +138,26 @@ export default function DiagnosticPage() {
 
   // Handle pulse reading continue
   const handlePulseContinue = useCallback(() => {
+    const wasCoherence = transition.type === 'pulse' && transition.pulseType === 'coherence';
     setTransition({ type: 'none' });
     setPulseReading(null);
-    nextStation();
-  }, [nextStation]);
+    if (wasCoherence) {
+      // After coherence preview, trigger actual submission
+      handleSubmit();
+    } else {
+      nextStation();
+    }
+  }, [transition, nextStation]);
 
   const handleSubmit = async () => {
+    // Show Coherence Preview first (before actual submission)
+    if (!coherenceShown) {
+      setCoherenceShown(true);
+      setTransition({ type: 'pulse', pulseType: 'coherence' });
+      fetchPulseReading('coherence');
+      return;
+    }
+    // Actual submission (after coherence preview dismissed)
     setSubmitting(true);
     try {
       const res = await fetch('/api/diagnostic', {

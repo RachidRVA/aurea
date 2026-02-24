@@ -101,9 +101,9 @@ export function PulseReading({ type, reading, onContinue, isLoading }: PulseRead
         {reading && !isLoading && (
           <button
             onClick={onContinue}
-            className="btn-serene mt-4 animate-fade-in"
+            className={`mt-4 animate-fade-in ${type === 'coherence' ? 'btn-primary' : 'btn-serene'}`}
           >
-            Continue Journey →
+            {type === 'coherence' ? 'Transmit Signal ✦' : 'Continue Journey →'}
           </button>
         )}
       </div>
