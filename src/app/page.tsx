@@ -14,10 +14,23 @@ export default function LandingPage() {
 
     const checkAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        setIsSignedIn(!!session);
+        // Race the auth check against a timeout — if Supabase is paused or
+        // unreachable, we still render the CTA buttons after 3 seconds
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise<null>((resolve) =>
+          setTimeout(() => resolve(null), 3000)
+        );
+
+        const result = await Promise.race([sessionPromise, timeoutPromise]);
+        if (result && 'data' in result) {
+          setIsSignedIn(!!result.data.session);
+        } else {
+          // Timeout — show unauthenticated state so buttons are clickable
+          setIsSignedIn(false);
+        }
       } catch (err) {
         console.error('Auth check error:', err);
+        setIsSignedIn(false);
       } finally {
         setLoading(false);
       }
