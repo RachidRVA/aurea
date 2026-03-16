@@ -39,15 +39,36 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Refresh the auth session
-  const { data: { user } } = await supabase.auth.getUser();
-
   const protectedPaths = ['/dashboard', '/diagnostic', '/directions', '/podcast', '/practice', '/return', '/letter'];
   const authPaths = ['/auth/signin', '/auth/signup'];
   const pathname = request.nextUrl.pathname;
 
   const isProtected = protectedPaths.some(p => pathname.startsWith(p));
   const isAuthPage = authPaths.some(p => pathname.startsWith(p));
+
+  // Only check auth when visiting protected or auth pages — skip for landing page
+  // and static assets to avoid hanging when Supabase is paused
+  if (!isProtected && !isAuthPage) {
+    return response;
+  }
+
+  // Race the auth check against a 4-second timeout so the middleware never
+  // blocks indefinitely when Supabase is unreachable
+  let user = null;
+  try {
+    const authPromise = supabase.auth.getUser();
+    const timeoutPromise = new Promise<null>((resolve) =>
+      setTimeout(() => resolve(null), 4000)
+    );
+
+    const result = await Promise.race([authPromise, timeoutPromise]);
+    if (result && 'data' in result) {
+      user = result.data.user;
+    }
+  } catch (err) {
+    // Auth check failed — treat as unauthenticated
+    console.error('Middleware auth check failed:', err);
+  }
 
   // Redirect unauthenticated users away from protected pages
   if (isProtected && !user) {
